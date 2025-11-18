@@ -1,4 +1,5 @@
-﻿using Infrastructure.DataPersistence;
+﻿using System.Diagnostics;
+using Infrastructure.DataPersistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -59,35 +60,16 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
     {
         using IServiceScope scope = Services.CreateScope();
 
-        // Reset Database
         ApplicationDbContext context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-        // Use TRUNCATE for better performance (faster than EnsureDeleted/EnsureCreated)
         await context.Database.ExecuteSqlRawAsync("TRUNCATE TABLE \"Characters\" RESTART IDENTITY CASCADE");
-
-        // Clear any cached entities in the DbContext
         context.ChangeTracker.Clear();
-
-        // Reset Redis Cache
-        await ResetCacheAsync();
     }
 
-    /// <summary>
-    /// Clears all keys from the Redis cache.
-    /// </summary>
     public async Task ResetCacheAsync()
     {
-        try
-        {
-            var redis = await ConnectionMultiplexer.ConnectAsync(_redisContainer.GetConnectionString(), options => options.AllowAdmin = true);
-            var server = redis.GetServer(redis.GetEndPoints().First());
-            await server.FlushDatabaseAsync();
-            await redis.CloseAsync();
-        }
-        catch (Exception)
-        {
-            // If Redis reset fails, continue (tests might not always use cache)
-            // In production tests, you might want to throw here
-        }
+        ConnectionMultiplexer redis = await ConnectionMultiplexer.ConnectAsync(_redisContainer.GetConnectionString(), options => options.AllowAdmin = true);
+        IServer server = redis.GetServer(redis.GetEndPoints().First());
+        await server.FlushDatabaseAsync();
+        await redis.CloseAsync();
     }
 }
