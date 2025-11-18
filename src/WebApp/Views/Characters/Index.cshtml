@@ -1,0 +1,165 @@
+@model WebApp.Models.PagedResult<Contracts.Characters.CharacterResponse>
+
+@{
+    ViewData["Title"] = "Characters";
+    var location = ViewData["Location"] as string;
+    var fromDatabase = Model.FromDatabase ? "database" : "cache";
+}
+
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <h1 class="display-4">Rick and Morty Characters</h1>
+            <p class="lead">
+                Data loaded from: <strong>@fromDatabase</strong>
+                <span class="text-muted">| Total: @Model.TotalCount characters | Page @Model.PageNumber of @Model.TotalPages</span>
+            </p>
+            @if (!string.IsNullOrWhiteSpace(location))
+            {
+                <p class="lead">Filtered by location: <strong>@location</strong></p>
+            }
+        </div>
+        <div class="col-auto">
+            <a asp-action="Create" class="btn btn-primary">Add New Character</a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Page Size Selector -->
+    <div class="row mb-3">
+        <div class="col">
+            <form method="get" asp-action="Index" class="d-inline-flex align-items-center gap-2">
+                <label for="pageSize" class="form-label mb-0">Items per page:</label>
+                <select name="pageSize" id="pageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                    <option value="10" selected="@(Model.PageSize == 10)">10</option>
+                    <option value="20" selected="@(Model.PageSize == 20)">20</option>
+                    <option value="50" selected="@(Model.PageSize == 50)">50</option>
+                    <option value="100" selected="@(Model.PageSize == 100)">100</option>
+                </select>
+                @if (!string.IsNullOrWhiteSpace(location))
+                {
+                    <input type="hidden" name="location" value="@location" />
+                }
+            </form>
+        </div>
+    </div>
+
+    @if (Model.Items.Any())
+    {
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            @foreach (var character in Model.Items)
+            {
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">@character.Name</h5>
+                            <p class="card-text">
+                                <strong>Species:</strong> @character.Species<br/>
+                                <strong>Type:</strong> @(string.IsNullOrWhiteSpace(character.Type) ? "Unknown" : character.Type)<br/>
+                                <strong>Gender:</strong> @character.Gender<br/>
+                                <strong>Location:</strong> @character.Location
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Pagination Controls -->
+        <nav aria-label="Character pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <!-- Previous Page Button -->
+                <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+                    <a class="page-link" 
+                       asp-action="Index" 
+                       asp-route-pageNumber="@(Model.PageNumber - 1)" 
+                       asp-route-pageSize="@Model.PageSize"
+                       asp-route-location="@location"
+                       aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+
+                <!-- Page Numbers -->
+                @{
+                    int startPage = Math.Max(1, Model.PageNumber - 2);
+                    int endPage = Math.Min(Model.TotalPages, Model.PageNumber + 2);
+                    
+                    if (startPage > 1)
+                    {
+                        <li class="page-item">
+                            <a class="page-link" 
+                               asp-action="Index" 
+                               asp-route-pageNumber="1" 
+                               asp-route-pageSize="@Model.PageSize"
+                               asp-route-location="@location">1</a>
+                        </li>
+                        if (startPage > 2)
+                        {
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        }
+                    }
+
+                    for (int i = startPage; i <= endPage; i++)
+                    {
+                        <li class="page-item @(i == Model.PageNumber ? "active" : "")">
+                            <a class="page-link" 
+                               asp-action="Index" 
+                               asp-route-pageNumber="@i" 
+                               asp-route-pageSize="@Model.PageSize"
+                               asp-route-location="@location">@i</a>
+                        </li>
+                    }
+
+                    if (endPage < Model.TotalPages)
+                    {
+                        if (endPage < Model.TotalPages - 1)
+                        {
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        }
+                        <li class="page-item">
+                            <a class="page-link" 
+                               asp-action="Index" 
+                               asp-route-pageNumber="@Model.TotalPages" 
+                               asp-route-pageSize="@Model.PageSize"
+                               asp-route-location="@location">@Model.TotalPages</a>
+                        </li>
+                    }
+                }
+
+                <!-- Next Page Button -->
+                <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+                    <a class="page-link" 
+                       asp-action="Index" 
+                       asp-route-pageNumber="@(Model.PageNumber + 1)" 
+                       asp-route-pageSize="@Model.PageSize"
+                       asp-route-location="@location"
+                       aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Page Info -->
+        <div class="text-center text-muted mb-4">
+            Showing @((Model.PageNumber - 1) * Model.PageSize + 1) to @(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalCount)) of @Model.TotalCount characters
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading">No characters found</h4>
+            <p>There are no characters@(string.IsNullOrWhiteSpace(location) ? "" : $" in location '{location}'") in the database.</p>
+            <hr>
+            <p class="mb-0">Try running the ConsoleApp to import characters from the Rick and Morty API.</p>
+        </div>
+    }
+</div>

@@ -1,0 +1,89 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: rickandmorty-postgres
+    environment:
+      POSTGRES_DB: rickandmorty_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rickandmorty_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - rickandmorty-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: rickandmorty-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - rickandmorty-network
+
+  # ConsoleApp - Character Import Worker
+  consoleapp:
+    build:
+      context: .
+      dockerfile: src/ConsoleApp/Dockerfile
+    container_name: rickandmorty-consoleapp
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+      - ConnectionStrings__PostgreSqlConnection=Host=postgres;Port=5432;Database=rickandmorty_db;Username=postgres;Password=postgres_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rickandmorty-network
+    restart: "no"  # Run once and exit
+
+  # WebApp Application
+  webapp:
+    build:
+      context: .
+      dockerfile: src/WebApp/Dockerfile
+    container_name: rickandmorty-webapp
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__PostgreSqlConnection=Host=postgres;Port=5432;Database=rickandmorty_db;Username=postgres;Password=postgres_password
+      - ConnectionStrings__RedisConnection=redis:6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      consoleapp:
+        condition: service_completed_successfully
+    networks:
+      - rickandmorty-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  rickandmorty-network:
+    driver: bridge

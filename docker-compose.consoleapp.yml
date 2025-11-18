@@ -1,0 +1,42 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: rickandmorty-postgres-import
+    environment:
+      POSTGRES_DB: rickandmorty_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rickandmorty_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - rickandmorty-import-network
+
+  # ConsoleApp - Character Import Worker
+  consoleapp:
+    build:
+      context: .
+      dockerfile: src/ConsoleApp/Dockerfile
+    container_name: rickandmorty-consoleapp
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+      - ConnectionStrings__PostgreSqlConnection=Host=postgres;Port=5432;Database=rickandmorty_db;Username=postgres;Password=postgres_password
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__Microsoft=Warning
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rickandmorty-import-network
+
+networks:
+  rickandmorty-import-network:
+    driver: bridge
