@@ -12,22 +12,17 @@ namespace Infrastructure.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool isDevelopment)
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration,
+        bool isDevelopment)
     {
         if (isDevelopment)
         {
-            services.AddDbContext<ApplicationDbContext, SqlLiteDbContext>((serviceProvider, options) =>
-            {
-                options.AddInterceptors(serviceProvider.GetRequiredService<ISaveChangesInterceptor>());
-            });
+            services.AddDbContext<ApplicationDbContext, SqlLiteDbContext>();
             services.AddDistributedMemoryCache();
         }
         else
         {
-            services.AddDbContext<ApplicationDbContext, PostgreSqlDbContext>((serviceProvider, options) =>
-            {
-                options.AddInterceptors(serviceProvider.GetServices<ISaveChangesInterceptor>());
-            });
+            services.AddDbContext<ApplicationDbContext, PostgreSqlDbContext>();
 
             services.AddStackExchangeRedisCache(options =>
             {

@@ -1,8 +1,12 @@
+﻿using System.Net;
+using Application.Characters;
+using Application.Common;
+using Contracts.Characters;
+using Domain.Characters;
 using Infrastructure.DataPersistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
-using System.Net;
 using WebApp.Tests.TestSetup;
 
 namespace WebApp.Tests;
@@ -162,7 +166,7 @@ public class CharactersControllerTests(CustomWebApplicationFactory factory)
         string getContent = await getResponse.Content.ReadAsStringAsync();
         string? token = ExtractAntiForgeryToken(getContent);
 
-        var formData = new Dictionary<string, string>
+        Dictionary<string, string> formData = new()
         {
             ["Name"] = "",
             ["Species"] = "",
@@ -171,7 +175,8 @@ public class CharactersControllerTests(CustomWebApplicationFactory factory)
         };
 
         // Act
-        HttpResponseMessage postResponse = await client.PostAsync("/Characters/Create", new FormUrlEncodedContent(formData));
+        HttpResponseMessage postResponse =
+            await client.PostAsync("/Characters/Create", new FormUrlEncodedContent(formData));
         string content = await postResponse.Content.ReadAsStringAsync();
 
         // Assert
@@ -192,7 +197,7 @@ public class CharactersControllerTests(CustomWebApplicationFactory factory)
         string getContent = await getResponse.Content.ReadAsStringAsync();
         string? token = ExtractAntiForgeryToken(getContent);
 
-        var formData = new Dictionary<string, string>
+        Dictionary<string, string> formData = new()
         {
             ["Name"] = "Summer Smith",
             ["Species"] = "Human",
@@ -203,7 +208,8 @@ public class CharactersControllerTests(CustomWebApplicationFactory factory)
         };
 
         // Act
-        HttpResponseMessage postResponse = await client.PostAsync("/Characters/Create", new FormUrlEncodedContent(formData));
+        HttpResponseMessage postResponse =
+            await client.PostAsync("/Characters/Create", new FormUrlEncodedContent(formData));
 
         // Assert
         postResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -212,7 +218,7 @@ public class CharactersControllerTests(CustomWebApplicationFactory factory)
         // Verify character was created in database
         IServiceScope scope = factory.Server.Services.CreateScope();
         ApplicationDbContext context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var createdCharacter = await context.Characters
+        Character? createdCharacter = await context.Characters
             .FirstOrDefaultAsync(c => c.Name == "Summer Smith");
 
         createdCharacter.ShouldNotBeNull();
@@ -220,6 +226,12 @@ public class CharactersControllerTests(CustomWebApplicationFactory factory)
         createdCharacter.Type.ShouldBe("Student");
         createdCharacter.Gender.ShouldBe("Female");
         createdCharacter.Location.ShouldBe("Earth");
+
+        IAppCache cache = scope.ServiceProvider.GetRequiredService<IAppCache>();
+        List<CharacterResponse>? cachedResult =
+            await cache.GetAsync<List<CharacterResponse>>(Constants.CharacterCacheKey);
+        CharacterResponse? cachedCharacter = cachedResult?.FirstOrDefault(c => c.Id == createdCharacter.Id);
+        Assert.NotNull(cachedCharacter);
     }
 
     private static string? ExtractAntiForgeryToken(string htmlContent)

@@ -12,6 +12,7 @@
 
 	<ItemGroup>
 		<InternalsVisibleTo Include="Application.Tests" />
+		<InternalsVisibleTo Include="WebApp.Tests" />
 	</ItemGroup>
 
   <ItemGroup>
